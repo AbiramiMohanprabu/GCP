@@ -1,0 +1,214 @@
+# **Cloud Armor security policy**
+
+**Creating security policy**
+
+gcloud compute security-policies create v2-bo-external-vendor-access-06  --project=netmedsb2c-poc --description="this is for trinity pub" 
+
+**Adding rule 100 **
+
+gcloud compute security-policies rules create 100 --project=netmedsb2c-poc --action=allow --security-policy=v2-bo-external-vendor-access-06 --src-ip-ranges=3.7.89.9/32,116.50.85.115/32,45.127.199.91/32,180.179.186.16/32,14.97.47.218/32,14.98.82.238/32,61.247.238.209/32,3.7.89.2/32,13.71.57.148/32,122.160.5.105/32
+
+
+**Adding rule 1000**
+
+gcloud compute security-policies rules create 1000 --project=netmedsb2c-poc --action=deny-403 --security-policy=v2-bo-external-vendor-access-06 --src-ip-ranges=0.0.0.0/0
+
+
+**Adding notification channel in alerts**
+
+gcloud alpha monitoring policies update 8582124080730001012 --display-name=PROD_RPOS_HIGH_CPU_UTILIZATION --set-notification-channels=5185874033234202718,6289761996216651977,7878267359089227387,14292794973858997570,15999601539963721389,6493091461308067221
+
+—----------------------------------------------------------------------------------------------
+
+gsutil du -sh gs://prod-nuttycrunch to get bucket size
+
+—---------------------------------------------------------------------------------------------
+
+gcloud alpha logging copy _Default storage.googleapis.com/boomerang-logs --location=global --log-filter=boomerang-prod-v01 --project=netmedsb2c-poc
+
+To export logs to the GCS bucket
+
+--------------------------------------------------------------------------------------------
+
+1. Create a firewall rule.
+
+**INGRESS:**
+
+gcloud compute --project=netmedsb2c-poc firewall-rules create https-ingress --direction=INGRESS --priority=100 --network=nms-prod --action=ALLOW --rules=tcp:443,icmp --source-ranges=115.242.183.126/32 --target-tags=https-bo,https-rwos,https-cc
+
+gcloud compute --project=netmedsb2c-poc firewall-rules create imgs-svr-ingress-http-https --direction=INGRESS --priority=100 --network=nms-prod --action=ALLOW --rules=tcp:80,tcp:443 --source-ranges=0.0.0.0/0 --target-tags=imgs-svr
+
+gcloud compute --project=netmedsb2c-poc firewall-rules create imgs-svr-ingress-all --direction=INGRESS --priority=100 --network=nms-prod --action=ALLOW --rules=all --source-ranges=35.227.195.135/32,192.168.100.0/24,14.141.101.154/32,192.168.1.0/24 --target-tags=imgs-svr
+
+**EGRESS**:
+
+gcloud compute --project=netmedsb2c-poc firewall-rules create imgs-svr-egress-all --direction=EGRESS --priority=100 --network=nms-prod --action=ALLOW --rules=all --destination-ranges=0.0.0.0/0 --target-tags=imgs-svr
+
+—------------------------------------------------------------------------------------------------------------
+
+	
+
+
+2. ** Create VM.**
+
+A. Command Line.
+gcloud compute instances create vm-devops --project=nms-poc-migration --zone=asia-south1-a --machine-type=e2-standard-2 --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=nms-staging-subnet-1 --maintenance-policy=MIGRATE --provisioning-model=STANDARD --service-account=501567953242-compute@developer.gserviceaccount.com --scopes=https://www.googleapis.com/auth/devstorage.read_only,https://www.googleapis.com/auth/logging.write,https://www.googleapis.com/auth/monitoring.write,https://www.googleapis.com/auth/servicecontrol,https://www.googleapis.com/auth/service.management.readonly,https://www.googleapis.com/auth/trace.append --tags=imgs-svr --create-disk=auto-delete=yes,boot=yes,device-name=vm-devops,image=projects/ubuntu-os-cloud/global/images/ubuntu-2204-jammy-v20240126,mode=rw,size=10,type=projects/nms-poc-migration/zones/asia-south1-a/diskTypes/pd-balanced --no-shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring --labels=goog-ec-src=vm_add-gcloud --reservation-affinity=any
+
+B. REST
+POST https://www.googleapis.com/compute/v1/projects/nms-poc-migration/zones/asia-south1-a/instances
+{
+  "canIpForward": false,
+  "confidentialInstanceConfig": {
+    "enableConfidentialCompute": false
+  },
+  "deletionProtection": false,
+  "description": "",
+  "disks": [
+    {
+      "autoDelete": true,
+      "boot": true,
+      "deviceName": "vm-devops",
+      "diskEncryptionKey": {},
+      "initializeParams": {
+        "diskSizeGb": "10",
+        "diskType": "projects/nms-poc-migration/zones/asia-south1-a/diskTypes/pd-balanced",
+        "labels": {},
+        "sourceImage": "projects/ubuntu-os-cloud/global/images/ubuntu-2204-jammy-v20240126"
+      },
+      "mode": "READ_WRITE",
+      "type": "PERSISTENT"
+    }
+  ],
+  "displayDevice": {
+    "enableDisplay": false
+  },
+  "guestAccelerators": [],
+  "instanceEncryptionKey": {},
+  "keyRevocationActionType": "NONE",
+  "labels": {
+    "goog-ec-src": "vm_add-rest"
+  },
+  "machineType": "projects/nms-poc-migration/zones/asia-south1-a/machineTypes/e2-standard-2",
+  "metadata": {
+    "items": []
+  },
+  "name": "vm-devops",
+  "networkInterfaces": [
+    {
+      "accessConfigs": [
+        {
+          "name": "External NAT",
+          "networkTier": "PREMIUM"
+        }
+      ],
+      "stackType": "IPV4_ONLY",
+      "subnetwork": "projects/nms-poc-migration/regions/asia-south1/subnetworks/nms-staging-subnet-1"
+    }
+  ],
+  "params": {
+    "resourceManagerTags": {}
+  },
+  "reservationAffinity": {
+    "consumeReservationType": "ANY_RESERVATION"
+  },
+  "scheduling": {
+    "automaticRestart": true,
+    "onHostMaintenance": "MIGRATE",
+    "provisioningModel": "STANDARD"
+  },
+  "serviceAccounts": [
+    {
+      "email": "501567953242-compute@developer.gserviceaccount.com",
+      "scopes": [
+        "https://www.googleapis.com/auth/devstorage.read_only",
+        "https://www.googleapis.com/auth/logging.write",
+        "https://www.googleapis.com/auth/monitoring.write",
+        "https://www.googleapis.com/auth/servicecontrol",
+        "https://www.googleapis.com/auth/service.management.readonly",
+        "https://www.googleapis.com/auth/trace.append"
+      ]
+    }
+  ],
+  "shieldedInstanceConfig": {
+    "enableIntegrityMonitoring": true,
+    "enableSecureBoot": false,
+    "enableVtpm": true
+  },
+  "tags": {
+    "items": [
+      "imgs-svr"
+    ]
+  },
+  "zone": "projects/nms-poc-migration/zones/asia-south1-a"
+}
+
+C. Terraform
+
+# This code is compatible with Terraform 4.25.0 and versions that are backwards compatible to 4.25.0.
+# For information about validating this Terraform code, see https://developer.hashicorp.com/terraform/tutorials/gcp-get-started/google-cloud-platform-build#format-and-validate-the-configuration
+
+resource "google_compute_instance" "vm-devops" {
+  boot_disk {
+    auto_delete = true
+    device_name = "vm-devops"
+
+    initialize_params {
+      image = "projects/ubuntu-os-cloud/global/images/ubuntu-2204-jammy-v20240126"
+      size  = 10
+      type  = "pd-balanced"
+    }
+
+    mode = "READ_WRITE"
+  }
+
+  can_ip_forward      = false
+  deletion_protection = false
+  enable_display      = false
+
+  labels = {
+    goog-ec-src = "vm_add-tf"
+  }
+
+  machine_type = "e2-standard-2"
+  name         = "vm-devops"
+
+  network_interface {
+    access_config {
+      network_tier = "PREMIUM"
+    }
+
+    queue_count = 0
+    stack_type  = "IPV4_ONLY"
+    subnetwork  = "projects/nms-poc-migration/regions/asia-south1/subnetworks/nms-staging-subnet-1"
+  }
+
+  scheduling {
+    automatic_restart   = true
+    on_host_maintenance = "MIGRATE"
+    preemptible         = false
+    provisioning_model  = "STANDARD"
+  }
+
+  service_account {
+    email  = "501567953242-compute@developer.gserviceaccount.com"
+    scopes = ["https://www.googleapis.com/auth/devstorage.read_only", "https://www.googleapis.com/auth/logging.write", "https://www.googleapis.com/auth/monitoring.write", "https://www.googleapis.com/auth/service.management.readonly", "https://www.googleapis.com/auth/servicecontrol", "https://www.googleapis.com/auth/trace.append"]
+  }
+
+  shielded_instance_config {
+    enable_integrity_monitoring = true
+    enable_secure_boot          = false
+    enable_vtpm                 = true
+  }
+
+  tags = ["imgs-svr"]
+  zone = "asia-south1-a"
+}
+
+
+
+
+Instances describe:
+
+gcloud compute instances os-inventory describe varnish-enterprise-6-payg-red-hat-1-vm --zone asia-south1-a
+
+
